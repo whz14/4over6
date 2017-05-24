@@ -28,7 +28,7 @@
 #include <sys/wait.h>
 #include <arpa/inet.h>
 // using namespace std;
-typedef enum { false = 0, true } bool;
+// typedef enum { false = 0, true } bool;
 sem_t sockLock;
 int socketfd, vportfd;
 int lastPulseTime = 0;
@@ -114,7 +114,7 @@ int connect2Server(/*char* virtualIp*/) {
     printf("received %d bytes data\n", recvNum);
     printf("%s\n", ipRes.data);
 
-    sprintf(ipRes.data + length - 5, " %d%c", socketfd, '\n')
+    sprintf(ipRes.data + ipRes.length - 5, " %d%c", socketfd, '\n');
     writeTunnel(ipRes.data, strlen(ipRes.data));
     // writeTunnel((char*)&socketfd, sizeof(int));
     // strcpy(virtualIp, ipRes.data);
