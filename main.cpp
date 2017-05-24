@@ -114,8 +114,9 @@ int connect2Server(/*char* virtualIp*/) {
     printf("received %d bytes data\n", recvNum);
     printf("%s\n", ipRes.data);
 
-    writeTunnel(ipRes.data, ipRes.length-5);
-    writeTunnel((char*)&socketfd, sizeof(int));
+    sprintf(ipRes.data + length - 5, " %d%c", socketfd, '\n')
+    writeTunnel(ipRes.data, strlen(ipRes.data));
+    // writeTunnel((char*)&socketfd, sizeof(int));
     // strcpy(virtualIp, ipRes.data);
     return socketfd;
 }
