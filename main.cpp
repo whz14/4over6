@@ -22,7 +22,7 @@ int lastPulseTime = 0;
 const char readFn[] = "read.txt";
 const char writeFn[] = "write.txt";
 const int BUF_SIZE = 4096;
-unsigned long long totalSndBytes = 0, totalRcvBytes = 0;
+int ttlSndBytes = 0, ttlRcvBytes = 0, ttlSndPkts = 0, ttlRcvPkts;
 
 struct Msg {
 	int length;
@@ -39,13 +39,13 @@ ostream& operator<<(ostream& o, const Msg& msg) {
 
 inline int mutSend(Msg* msg) {
 	int res = send(socketfd, msg, msg->length, 0);
-	totalSndBytes += res;
+	ttlSndBytes += res;
 	return res;
 }
 
 inline int mutRecv(Msg* msg) {
 	int res = recv(socketfd, msg, sizeof(Msg), 0);
-	totalRcvBytes += res;
+	ttlRcvBytes += res;
 	return res;
 }
 
@@ -65,12 +65,12 @@ int writeTunnel(char* content, int length) {
 	return cnt;
 }
 
-int readVport(char* target, int maxLen) {
-
+inline int readVport(char* target, int maxLen) {
+	return read(vportfd, target, maxLen);
 }
 
-int writeVport(char* content, int length) {
-
+inline int writeVport(char* content, int length) {
+	return write(vportfd, content, length);
 }
 
 int connect2Server(/*char* virtualIp*/) {
@@ -97,7 +97,7 @@ int connect2Server(/*char* virtualIp*/) {
 	cout << ipRes.data << endl;
 	
 	writeTunnel(ipRes.data, ipRes.length-5);
-	writeTunnel(&socketfd, sizeof(int));
+	writeTunnel((char*)&socketfd, sizeof(int));
 	// strcpy(virtualIp, ipRes.data);
 	return socketfd;
 }
@@ -114,13 +114,9 @@ void* pulseThread(void*) {
 		}
 		sleep(1);
 		
-		char content[17];	
-		// [BOOL][TOTAL SEND BYTES][TOTAL RECEIVE BYTES]
-		// [ 0  ][1 			 8][9                17]
-		content[0] = 0;
-		*(long long*)(content + 1) = totalSndBytes;
-		*(long long*)(content + 9) = totalRcvBytes;
-		writeTunnel(content, 17);
+		char content[50];
+		sprintf(content, "%d %d %d %d%c", ttlSndBytes, ttlSndPkts, ttlRcvBytes, ttlRcvPkts, '\0');
+		writeTunnel(content, strlen(content));
 
 		int currentTime = time(NULL);
 		int delta = currentTime - lastPulseTime;
@@ -139,17 +135,17 @@ void* recvThread(void*) {
 		cout << "recving " << mutRecv(&recvMsg) << " bytes of data\n";
 		cout << recvMsg << endl;
 		switch(recvMsg.type) {
-		case 104:
+		case 104: {
 			lastPulseTime = time(NULL);
-			break;
+		}break;
 		case 101:	// why???
-		case 102:
+		case 102: {
 			cout << recvMsg << endl;
-			break;
-		case 103:
+		}break;
+		case 103:{
 			char* content = recvMsg.data;
 			writeVport(content, recvMsg.length-5);
-			break;
+		}break;
 		default:
 			cout << recvMsg << endl;
 		}
@@ -185,7 +181,7 @@ int main() {
 	// char virtualIp[4096];
 	createTunnels();
 	socketfd = connect2Server(/*virtualIp*/);
-	readTunnel(&vportfd, 4);
+	readTunnel((char*)&vportfd, 4);
 
 	pthread_t pulseThrd, sendThrd, recvThrd;	// receive thread is the main thread
 	pthread_create(&pulseThrd, NULL, pulseThread, NULL);
